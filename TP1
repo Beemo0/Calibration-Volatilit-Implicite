@@ -1,0 +1,1011 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.stats import norm
+from sklearn.linear_model import LinearRegression
+import pandas as pd
+from datetime import datetime
+
+
+# Paramètres fixes
+K = 10       # Strike
+T = 1        # Maturité
+t = 0.5      # temps
+r = 0.1      # Taux sans risque
+sigma = 0.5  # Volatilité
+
+#On met ici toutes les fonctions utiles à la suite du TP
+def BlackScholes_Call(S, K, T, t, r, sigma):
+    d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * (T-t)) / (sigma * np.sqrt(T-t))
+    d2 = d1 - sigma * np.sqrt(T - t)
+    call_price = S * norm.cdf(d1) - K * np.exp(-r * (T-t)) * norm.cdf(d2)
+    return call_price
+
+
+def BlackScholes_Put(S, K, T, t, r, sigma):
+    put_price = BlackScholes_Call(S, K, T, t, r, sigma)- S + K * np.exp(-r * (T-t))
+    return put_price
+
+def Vega(S, K, T, t, r, sigma):
+    d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * (T-t)) / (sigma * np.sqrt(T-t))
+    vega = S * norm.pdf(d1) * np.sqrt(T-t)
+    return vega
+
+#Algorithme de Newton
+def Newton(S,K,r,sigma,T,t,M,g):
+    while abs((F(S,K,r,sigma,T,t,M))) > g:
+        sigma = sigma - F(S,K,r,sigma,T,t,M)/Vega(S, K, T, t, r, sigma)
+    return sigma
+
+def F(S,K,r,sigma,T,t,M):
+    return BlackScholes_Call(S, K, T, t, r, sigma) - M
+
+def F_Put(S, K, r, sigma, T, t, M):
+    return BlackScholes_Put(S, K, T, t, r, sigma) - M
+
+""""
+# Liste de prix du sous-jacent
+S_values = np.linspace(1, 20, 100)
+call_prices = [BlackScholes_Call(S, K, T, t, r, sigma) for S in S_values]
+vega_values = [Vega(S, K, T, t, r, sigma) for S in S_values]
+
+
+# Liste de prix du sous-jacent
+S_values = np.linspace(1, 20, 100)
+call_prices = [BlackScholes_Call(S, K, T, t, r, sigma) for S in S_values]
+vega_values = [Vega(S, K, T, t, r, sigma) for S in S_values]
+
+# Plot Call
+plt.figure(figsize=(10, 5))
+
+plt.subplot(1, 2, 1)
+plt.plot(S_values, call_prices, label="Prix Call", color='blue')
+plt.title("Prix du Call Européen en fonction de S")
+plt.xlabel("Prix du sous-jacent S")
+plt.ylabel("Prix du Call")
+plt.grid(True)
+plt.legend()
+
+# Plot Vega
+plt.subplot(1, 2, 2)
+plt.plot(S_values, vega_values, label="Vega", color='green')
+plt.title("Vega en fonction de S")
+plt.xlabel("Prix du sous-jacent S")
+plt.ylabel("Vega")
+plt.grid(True)
+plt.legend()
+
+plt.tight_layout()
+plt.show()"""
+
+#Travail 1 LIFFE
+def Part1():
+    t = 4 / 12        
+    T = 25 / 36
+    S0 = 5430.3
+    r = 0.05
+    M = [475, 405, 340, 280.5, 226, 179.5, 139, 105]
+    k = [5125, 5225, 5325, 5425, 5525, 5625, 5725, 5825]
+    sigma_imp = [0] * len(k)
+    g = 0.0217
+
+    # Volatilité implicite initiale 
+    sigma = np.sqrt(2 * abs((np.log(S0 / k[0]) + r * (T - t)) / (T - t)))
+
+    for i in range(8): 
+        sigma = Newton(S0, k[i], r, sigma, T, t, M[i], g) 
+        sigma_imp[i] = sigma
+
+    plt.plot(k, sigma_imp, marker='o')
+    plt.xlabel("Strike K")
+    plt.ylabel("Volatilité implicite")
+    plt.title("Courbe de volatilité implicite - LIFFE")
+    plt.grid(True)
+    plt.show()
+
+
+#Travail sur SP-INDEX 
+def data_extract():
+    eps = 0.0001
+    t = 0
+    g = 0.0217
+    S0 = 1260.36
+    
+    chemin = "/home/cytech/Desktop/Documents/ING3/Calibration/TP1/sp-index.txt"
+    fichier = np.loadtxt(chemin,skiprows=1)
+    N = len(fichier)
+    
+    S_0 = np.zeros(N)
+    sigma_imp = np.zeros(N)
+    
+    T = fichier[:,0]
+    K = fichier[:,1]
+    Cb = fichier[:,2]
+    Ca = fichier[:,3]
+    Pb = fichier[:,4]
+    Pa = fichier[:,5]
+    r = fichier[:,6]/100
+    
+    Call = (Cb + Ca)/2
+    Put = (Pb + Pa)/2
+    
+    Sj = 8*[0]
+    ln_Sj = 8*[0]
+    Nj = []
+    Tj = []
+
+    # Question 1
+
+    # set() supprime tout les doublons dans la liste et list() les tries et les ordonnes donc il reste que les 8 échéance dans le code.
+    Tj = list(set(T))
+    res = []
+
+    # Estimation de S par la parité Call - Put
+    S = 0
+    compteur_test = 0
+    Test_t = np.array(T)
+    for j in range(len(Tj)):
+        for i in range(N):
+            if (Tj[j] == Test_t[i]):
+                S = S + (Call[i] - Put[i] + np.exp(-r[i]*Test_t[i])*K[i])
+                compteur_test += 1
+        res.append(S/compteur_test)        
+        S = 0
+        compteur_test = 0
+
+    # Question 2
+    # On calcul le log de notre estimation précédente
+    log = np.log(res)
+    
+    plt.plot(Tj,log)
+    plt.xlabel("Maturité") 
+    plt.ylabel("Avec Dividende") 
+    plt.title("Logarithme de S")
+    plt.show() 
+    
+    # Question 3 et 4
+
+    # On fait une régression linéaire sur : ln(S) = β1*​T+ β2
+    # pour vérifier nos calculs et on plot le résultat 
+    T_q4 = np.array(Tj).reshape(-1, 1)  
+    ln_S = np.array(log)  
+
+    model = LinearRegression()
+    model.fit(T_q4, ln_S)
+
+    # β1 ​= −q
+    # β2​ = ln(S0​)
+    b1 = model.coef_[0]  
+    b2 = model.intercept_  
+
+    print(f"β1: {b1}, β2: {b2}")
+    
+    ln_S_pred = model.predict(T_q4)
+    
+    plt.figure()
+    plt.scatter(Tj, ln_S, label='Données Observées', color='blue')  
+    plt.plot(Tj, ln_S_pred, color='red', label='Régression Linéaire')  
+    plt.xlabel("Maturité T") 
+    plt.ylabel("ln(S chapeau)") 
+    plt.title("Régression Linéaire de ln(S chapeau) en fonction des maturités T")
+    plt.legend()
+    plt.show()
+    #Question6
+    s0_6 = np.exp(b2)
+    q_6 = -b1
+    print("Valeur théorique de S0 = 1260.36 et valeur calculée :", s0_6)
+    print("Valeur théorique de q = 0.0217 et valeur calculée :", q_6)
+    
+    #Solutions analytiques 
+    somme1 = sum(Tj[i] * log[i] for i in range(8))
+    somme2 = sum(log)
+    somme3 = sum(Tj)
+    somme4 = sum(Tj[i]**2 for i in range(8))
+    beta1_f = (somme1 - (somme2 * somme3)/8) / (somme4 - (somme3**2) / 8)
+    beta2_f = (somme2 * somme4 - (somme1*somme3)) / (8*somme4 - somme3**2)
+    print("Valeur de beta1 avec la formule :", beta1_f)
+    print("Valeur du dividende sachant que q = -beta1 :", -beta1_f)
+    print("Valeur de beta2 avec la formule :", beta2_f)
+    print("Valeur de S0 = exp(beta2) avec la formule :", np.exp(beta2_f))
+
+# Fonction de vérification pour le Call
+def verification(Call, S, K, T, t, r):
+    if max(S - K * np.exp(-r * (T-t)), 0) < Call < S:
+        return 1
+    return 0
+
+# Fonction de vérification du Put
+def verification2(Put, S, K, T, t, r):
+    if max(S - K * np.exp(-r * (T-t)),0) - S + K*np.exp(-r*(T-t)) < Put < K * np.exp(-r*(T-t)):
+        return 1
+    return 0
+
+#Graphique du Call 2D
+def Call_2D():
+    eps = 0.0001  # seuil pour la vérification
+    t = 0
+    q = 0.0217
+    S0 = 1260.36
+    
+    chemin = "/home/cytech/Desktop/Documents/ING3/Calibration/TP1/sp-index.txt"
+    fichier = np.loadtxt(chemin,skiprows=1)
+    N = len(fichier) # Calcul du nb de lignes pour initialiser tous les vecteurs de données
+    
+    #Initialisation des données
+    S_0 = np.zeros(N)
+    vol_imp = np.zeros(N)
+    K = np.zeros(N)
+    r = np.zeros(N)
+    T = np.zeros(N)
+    Cb = np.zeros(N)
+    Ca = np.zeros(N)
+    Call = np.zeros(N)
+    
+    #Calcul des données
+    T = fichier[:,0]
+    K = fichier[:,1]
+    Cb = fichier[:,2]
+    Ca = fichier[:,3]
+    r = fichier[:,6]/100
+    
+    Call = (Cb + Ca)/2
+    
+    for i in range(N):
+        S_0[i] = S0*np.exp(-q * (T[i] - t))
+        if verification(Call[i],S_0[i],K[i],T[i], t, r[i]): 
+            sigma = []
+            #Initialisation du sigma
+            sigma.append(np.sqrt(2*abs((np.log(S_0[i]/K[i])+r[i]*(T[i] - t)/(T[i] - t)))))
+            #Algorithme de Newton
+            while abs(F(S_0[i],K[i],r[i],sigma[-1],T[i],t,Call[i])) > eps:
+                sigma.append(sigma[-1] - F(S_0[i],K[i],r[i],sigma[-1],T[i],t,Call[i])/Vega(S_0[i],K[i], T[i], t, r[i],sigma[-1]))
+                vol_imp[i] = sigma[-1]
+        else : 
+            vol_imp[i] = 0
+
+    # Suppression de tout les strikes et sigma ou la volatilité implicite est nullle              
+    volat_nules=np.where(vol_imp==0)
+    K = np.delete(K,volat_nules)
+    vol_imp = np.delete(vol_imp,volat_nules)
+            
+    plt.plot(K,vol_imp,".")
+    plt.title("Call 2D spindex")
+    plt.ylabel("Vol imp")
+    plt.xlabel("K")
+    plt.show()
+
+#Graphique du Put 2D
+def Put_2D():
+    eps = 0.0001  # seuil pour la vérification
+    t = 0
+    q = 0.0217
+    S0 = 1260.36
+    
+    chemin = "/home/cytech/Desktop/Documents/ING3/Calibration/TP1/sp-index.txt"
+    fichier = np.loadtxt(chemin,skiprows=1)
+    N = len(fichier) # Calcul du nb de lignes pour initialiser tous les vecteurs de données
+    
+    #Initialisation des données
+    S_0 = np.zeros(N)
+    vol_imp = np.zeros(N)
+    K = np.zeros(N)
+    r = np.zeros(N)
+    T = np.zeros(N)
+    Pb = np.zeros(N)
+    Pa = np.zeros(N)
+    Put = np.zeros(N)
+    
+    #Chargement des données
+    T = fichier[:,0]
+    K = fichier[:,1]
+    Pb = fichier[:,4]
+    Pa = fichier[:,5]
+    r = fichier[:,6]/100
+    
+    #Calcul du cours
+    Put = (Pb + Pa)/2
+
+    for i in range(N):
+        #Actualisation du prix
+        S_0[i] = S0*np.exp(-q * (T[i] - t))
+        if verification2(Put[i],S_0[i],K[i],T[i], t, r[i]): 
+            sigma = []
+            #Initialisation du sigma
+            sigma.append(np.sqrt(2*abs((np.log(S_0[i]/K[i]) + r[i]*(T[i] - t)) / (T[i] - t))))
+            #Algorithme de Newton
+            while abs(F_Put(S_0[i], K[i], r[i], sigma[-1], T[i], t, Put[i])) > eps:
+                sigma.append(sigma[-1] - F_Put(S_0[i], K[i], r[i], sigma[-1], T[i], t, Put[i]) / Vega(S_0[i], K[i], T[i], t, r[i], sigma[-1]))
+                vol_imp[i] = sigma[-1]
+
+        else : 
+            vol_imp[i] = 0
+
+    # Suppression de tout les strikes et sigma ou la volatilité implicite est nullle              
+    volat_nules=np.where(vol_imp==0)
+    K = np.delete(K,volat_nules)
+    vol_imp = np.delete(vol_imp,volat_nules)
+            
+    plt.plot(K,vol_imp,".")
+    plt.title("Put 2D spindex")
+    plt.ylabel("Vol imp")
+    plt.xlabel("K")
+    plt.show()
+                
+# Graphique du Call 3D
+
+def Call_3D():
+    eps = 0.0001
+    t = 0
+    q = 0.0217
+    S0 = 1260.36
+    
+    chemin = "/home/cytech/Desktop/Documents/ING3/Calibration/TP1/sp-index.txt"
+    fichier = np.loadtxt(chemin,skiprows=1)
+    N = len(fichier) # Calcul du nb de lignes pour initialiser tous les vecteurs de données
+    
+    # Initialisation des données
+    S_0 = np.zeros(N)
+    vol_imp = np.zeros(N)
+    K = np.zeros(N)
+    r = np.zeros(N)
+    T = np.zeros(N)
+    Cb = np.zeros(N)
+    Ca = np.zeros(N)
+    Call = np.zeros(N)
+    
+    # Chargement des données
+    T = fichier[:,0]
+    K = fichier[:,1]
+    Cb = fichier[:,2]
+    Ca = fichier[:,3]
+    r = fichier[:,6]/100
+    
+    #Calcul du cours
+    Call = (Cb + Ca)/2
+    
+    for i in range(N):
+        #Actualisation du prix
+        S_0[i] = S0*np.exp(-q * T[i])
+        if verification(Call[i],S_0[i],K[i],T[i], t, r[i]): 
+            sigma = []
+            #Initialisation du sigma
+            sigma.append(np.sqrt(2*abs((np.log(S_0[i]/K[i])+r[i]*T[i])/T[i])))
+            #Algorithme de Newton
+            while abs(F(S_0[i],K[i],r[i],sigma[-1],T[i],t,Call[i])) > eps:
+                sigma.append(sigma[-1] - F(S_0[i],K[i],r[i],sigma[-1],T[i],t,Call[i])/Vega(S_0[i],K[i], T[i], t, r[i],sigma[-1]))
+                vol_imp[i] = sigma[-1]
+        else : 
+            vol_imp[i] = 0
+
+    # Suppression de tout les strikes et sigma ou la volatilité implicite est nullle       
+    volat_nules=np.where(vol_imp==0)
+    K = np.delete(K,volat_nules)
+    T = np.delete(T,volat_nules)
+    vol_imp = np.delete(vol_imp,volat_nules)
+    
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.scatter(K, T, vol_imp, c='b', marker='o')
+
+    ax.set_title("Partie 3 Call 3D")
+    ax.set_xlabel("K")
+    ax.set_ylabel("T")
+    ax.set_zlabel("Vol imp")
+
+    plt.show()
+
+# graphique du Put 3D
+
+def Put_3D():
+    eps = 0.0001
+    t = 0
+    q = 0.0217
+    S0 = 1260.36
+    
+    chemin = "/home/cytech/Desktop/Documents/ING3/Calibration/TP1/sp-index.txt"
+    fichier = np.loadtxt(chemin,skiprows=1)
+    N = len(fichier) # Calcul du nb de lignes pour initialiser tous les vecteurs de données
+    
+    # Initialisation des données
+    S_0 = np.zeros(N)
+    vol_imp = np.zeros(N)
+    K = np.zeros(N)
+    r = np.zeros(N)
+    T = np.zeros(N)
+    Pb = np.zeros(N)
+    Pa = np.zeros(N)
+    Put = np.zeros(N)
+    
+    # Chargement des données
+    T = fichier[:,0]
+    K = fichier[:,1]
+    Pb = fichier[:,4]
+    Pa = fichier[:,5]
+    r = fichier[:,6]/100
+    
+    # Calcul du cours
+    Put = (Pb + Pa)/2
+    
+    for i in range(N):
+        #Actualisation du prix
+        S_0[i] = S0*np.exp(-q * T[i])
+        if verification2(Put[i],S_0[i],K[i],T[i], t, r[i]): 
+            sigma = []
+            #Initialisation du sigma
+            sigma.append(np.sqrt(2*abs((np.log(S_0[i]/K[i])+r[i]*T[i])/T[i])))
+            #Algorithme de Newton
+            while abs(F_Put(S_0[i],K[i],r[i],sigma[-1],T[i],t,Put[i])) > eps:
+                sigma.append(sigma[-1] - F_Put(S_0[i], K[i], r[i], sigma[-1], T[i], t, Put[i]) / Vega(S_0[i], K[i], T[i], t, r[i], sigma[-1]))
+                vol_imp[i] = sigma[-1]
+        else : 
+            vol_imp[i] = 0
+
+    # Suppression de tout les strikes et sigma ou la volatilité implicite est nullle              
+    volat_nules=np.where(vol_imp==0)
+    K = np.delete(K,volat_nules)
+    T = np.delete(T,volat_nules)
+    vol_imp = np.delete(vol_imp,volat_nules)
+            
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.scatter(K, T, vol_imp, c='b', marker='o')
+
+    ax.set_title("Put 3D")
+    ax.set_xlabel("K")
+    ax.set_ylabel("T")
+    ax.set_zlabel("Vol imp")
+
+    plt.show()
+           
+#Graphique du Call et Put 3D superposé
+def Superposition():
+    eps = 0.0001
+    t = 0
+    q = 0.0217
+    S0 = 1260.36
+
+    chemin = "/home/cytech/Desktop/Documents/ING3/Calibration/TP1/sp-index.txt"
+    fichier = np.loadtxt(chemin, skiprows=1)
+    N = len(fichier) # Calcul du nb de lignes pour initialiser tous les vecteurs de données
+
+    # Initialisation des données
+    S_0 = np.zeros(N)
+    vol_imp_call = np.zeros(N)
+    vol_imp_put = np.zeros(N)
+    K = fichier[:, 1]
+    T = fichier[:, 0]
+    r = fichier[:, 6] / 100
+
+    # Données Call
+    Cb = fichier[:, 2]
+    Ca = fichier[:, 3]
+    Call = (Cb + Ca) / 2
+
+    for i in range(N):
+        # Actualisation du prix
+        S_0[i] = S0 * np.exp(-q * T[i])
+        if verification(Call[i],S_0[i],K[i],T[i], t, r[i]):
+            #Initialisation du sigma
+            sigma = [np.sqrt(2 * abs((np.log(S_0[i] / K[i]) + r[i] * T[i]) / T[i]))]
+            # Algorithme de Newton
+            while abs(F(S_0[i], K[i], r[i], sigma[-1], T[i], t, Call[i])) > eps:
+                sigma.append(sigma[-1] - F(S_0[i],K[i],r[i],sigma[-1],T[i],t,Call[i])/Vega(S_0[i],K[i], T[i], t, r[i],sigma[-1]))
+                vol_imp_call[i] = sigma[-1]
+        else:
+            vol_imp_call[i] = 0
+
+    # Données Put
+    Pb = fichier[:, 4]
+    Pa = fichier[:, 5]
+    Put = (Pb + Pa) / 2
+
+    for i in range(N):
+        # Actualisation du prix
+        S_0[i] = S0 * np.exp(-q * T[i])
+        if verification2(Call[i],S_0[i],K[i],T[i], t, r[i]): 
+            #Initialisation du sigma
+            sigma = [np.sqrt(2 * abs((np.log(S_0[i] / K[i]) + r[i] * T[i]) / T[i]))]
+            # Algorithme de Newton
+            while abs(F_Put(S_0[i], K[i], r[i], sigma[-1], T[i], t, Put[i])) > eps:
+                sigma.append(sigma[-1] - F_Put(S_0[i], K[i], r[i], sigma[-1], T[i], t, Put[i]) / Vega(S_0[i], K[i], T[i], t, r[i], sigma[-1]))
+            vol_imp_put[i] = sigma[-1]
+        else:
+            vol_imp_put[i] = 0
+
+    # Suppression de tout les strikes et sigma ou la volatilité implicite est nullle pour le Call et le Put         
+
+    volat_nules_call = np.where(vol_imp_call == 0)
+    K_call = np.delete(K, volat_nules_call)
+    T_call = np.delete(T, volat_nules_call)
+    vol_imp_call = np.delete(vol_imp_call, volat_nules_call)
+
+    volat_nules_put = np.where(vol_imp_put == 0)
+    K_put = np.delete(K, volat_nules_put)
+    T_put = np.delete(T, volat_nules_put)
+    vol_imp_put = np.delete(vol_imp_put, volat_nules_put)
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="3d")
+
+    # Scatter pour Call
+    ax.scatter(K_call, T_call, vol_imp_call, c="b", marker="o", label="Call")
+
+    # Scatter pour Put
+    ax.scatter(K_put, T_put, vol_imp_put, c="r", marker="^", label="Put")
+
+    ax.set_title("Superposition Call et Put en 3D")
+    ax.set_xlabel("K")
+    ax.set_ylabel("T")
+    ax.set_zlabel("Vol imp")
+    ax.legend()
+
+    plt.show()
+
+# Graphique du fichier GoogleOrig.xlsx
+# smile de vol
+def Google():
+    eps = 0.0001
+    t = 0
+    q = 0.99
+    S0 = 591.66
+    
+    chemin = "/home/cytech/Desktop/Documents/ING3/Calibration/TP1/GoogleOrig.xlsx"
+    fichier = pd.read_excel(chemin,sheet_name='Orig', skiprows=1)
+    N = len(fichier)
+
+    # Initialisation des données
+    S_0 = np.zeros(N)
+    vol_imp = np.zeros(N)
+    K = np.zeros(N)
+    r = np.zeros(N)
+    T = np.zeros(N)
+    Call = np.zeros(N)
+    
+    #Chargement des données
+    T = fichier['Time'].values
+    K = fichier['Strike'].values
+    Call = fichier['Call Price'].values
+    
+    for i in range(N):
+        # Actualisation du prix
+        S_0[i] = S0 * np.exp(-q * T[i])
+        if verification(Call[i],S_0[i],K[i],T[i], t, r[i]):
+            #Initialisation du sigma
+            sigma = [np.sqrt(2 * abs((np.log(S_0[i] / K[i]) + r[i] * T[i]) / T[i]))]
+            # Algorithme de Newton
+            while abs(F(S_0[i], K[i], r[i], sigma[-1], T[i], t, Call[i])) > eps:
+                sigma.append(sigma[-1] - F(S_0[i],K[i],r[i],sigma[-1],T[i],t,Call[i])/Vega(S_0[i],K[i], T[i], t, r[i],sigma[-1]))
+                vol_imp[i] = sigma[-1]
+        else:
+            vol_imp[i] = 0
+    
+    # Suppression de tout les strikes et sigma ou la volatilité implicite est nullle              
+    volat_nules = np.where(vol_imp == 0)
+    K = np.delete(K, volat_nules)
+    T = np.delete(T, volat_nules)
+    vol_imp = np.delete(vol_imp, volat_nules)
+    
+    # Tracé 2D avec couleur par maturité
+    val_T = np.unique(T)
+    colors = ['r', 'g', 'b']
+    for i, t_val in enumerate(val_T):
+        j = np.where(T == t_val)
+        plt.plot(K[j], vol_imp[j], color=colors[i % len(colors)], label=f"T={t_val}")
+    
+    plt.title("Call Orig 2D")
+    plt.ylabel("Volatilité implicite")
+    plt.xlabel("Strike K")
+    plt.legend()
+    plt.show()
+    
+    # Tracé 3D
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    for i, t_val in enumerate(val_T):
+        j = np.where(T == t_val)
+        ax.plot(K[j], T[j], vol_imp[j], color=colors[i % len(colors)], label=f"T={t_val}")
+
+    ax.set_title("Call Orig 3D")
+    ax.set_xlabel("K")
+    ax.set_ylabel("T")
+    ax.set_zlabel("Vol Implicite")
+    ax.legend()
+    plt.show()
+
+#Spx_quotedata.csv
+
+def Quote_Call():
+    eps = 0.0001
+    t = 0
+    q = 0.0
+    S0 = 3932.69
+    
+    chemin = "/home/cytech/Desktop/Documents/ING3/Calibration/TP1/spx_quotedata.csv"
+    fichier = pd.read_csv(chemin,header=0,sep=',')
+    N = len(fichier)
+    
+    # Initialisation des données
+    S_0 = np.zeros(N)
+    vol_imp = np.zeros(N)
+    K = np.zeros(N)
+    r = np.zeros(N)
+    T = np.zeros(N)
+    Cb = np.zeros(N)
+    Ca = np.zeros(N)
+    Call = np.zeros(N)
+    Pb = np.zeros(N)
+    Pa = np.zeros(N)
+    Put = np.zeros(N)
+    format = '%d-%m-%y'
+    Maturite = []
+    
+    date_ref = datetime.strptime(fichier['Expiration Date'].iloc[0], format)
+    
+    for i in range(N):
+        # Chargement des données
+        date = fichier['Expiration Date'].iloc[i]
+        Maturite.append(datetime.strptime(date,format))
+        diff = (Maturite[i] - date_ref).days
+        T[i] = diff/365.25
+        
+        Cb[i] = fichier['Bid'].iloc[i]
+        Ca[i] = fichier['Ask'].iloc[i]
+        Pb[i] = fichier['Bid.1'].iloc[i]
+        Pa[i] = fichier['Ask.1'].iloc[i]
+        K[i] = fichier['Strike'].iloc[i]
+        r[i] = 0.0255
+        S_0[i] = S0
+        
+        #Calculs du cours
+        Call[i] = (Cb[i] + Ca[i])/2
+        Put[i] = (Pb[i] + Pa[i])/2
+        
+        if verification(Call[i],S_0[i],K[i],T[i], t, r[i]): 
+            #Initialisation du sigma
+            sigma = [np.sqrt(2 * abs((np.log(S_0[i] / K[i]) + r[i] * T[i]) / T[i]))]
+            # Algorithme de Newton
+            while abs(F(S_0[i], K[i], r[i], sigma[-1], T[i], t, Call[i])) > eps:
+                sigma.append(sigma[-1] - F(S_0[i],K[i],r[i],sigma[-1],T[i],t,Call[i])/Vega(S_0[i],K[i], T[i], t, r[i],sigma[-1]))
+                vol_imp[i] = sigma[-1]
+        else:
+            vol_imp[i] = 0
+            
+
+    # Suppression de tout les données ou la volatilité implicite est nullle              
+    volat_nules=np.where(vol_imp==0)
+    K = np.delete(K,volat_nules)
+    vol_imp = np.delete(vol_imp,volat_nules)
+    T = np.delete(T,volat_nules)
+    Call = np.delete(Call, volat_nules)
+    Put = np.delete(Put, volat_nules)
+    r = np.delete(r,volat_nules)    
+    
+    vol_p = []
+    K_p = []
+    vol_d = []
+    K_d = []
+    
+    for i in range(12):
+        vol_p.append(vol_imp[i])
+        K_p.append(K[i])
+        
+    plt.plot(K_p,vol_p,".")
+    plt.title("Quote Call 2D - 12 premiers")
+    plt.ylabel("Vol imp")
+    plt.xlabel("K")
+    plt.show()
+    
+    # Découpage de sous ensemble dans une liste
+    Tj = list(set(T))
+    res = []
+    Test_t = np.array(T)
+
+    # Estimation de S par la parité Call - Put
+    for j in range(len(Tj)):
+        s_c = 0
+        compteur_test = 0
+        for i in range(len(Call)): 
+            if Tj[j] == Test_t[i]:
+                s_c += (Call[i] - Put[i] + np.exp(-r[i] * (Test_t[i] )) * K[i])
+                compteur_test += 1
+        if compteur_test > 0:
+            res.append(s_c / compteur_test)  
+        else:
+            res.append(0)
+
+    log = np.log(res)
+    
+    plt.plot(Tj,log,".")
+    plt.xlabel("Maturité") 
+    plt.ylabel("Avec Dividende") 
+    plt.title("Logarithme de S")
+    plt.show() 
+    
+    # On fait une régression linéaire sur : ln(S) = β1*​T+ β2
+    # pour vérifier nos calculs et on plot le résultat
+    T_q4 = np.array(Tj).reshape(-1, 1)  
+    ln_S = np.array(log)  
+
+    model = LinearRegression()
+    model.fit(T_q4, ln_S)
+
+    # β1 ​= −q
+    # β2​ = ln(S0​)
+    beta1 = model.coef_[0]  
+    beta2 = model.intercept_  
+
+    print(f"β1: {beta1}, β2: {beta2}")
+    
+    ln_S_pred = model.predict(T_q4)
+    
+    plt.figure()
+    plt.scatter(Tj, ln_S, label='Données Observées', color='blue')  
+    plt.plot(Tj, ln_S_pred, color='red', label='Régression Linéaire') 
+    plt.xlabel("Maturité T") 
+    plt.ylabel("ln(S chapeau)") 
+    plt.title("Régression Linéaire de ln(S chapeau) en fonction des maturités T")
+    plt.legend()
+    plt.show()
+    
+    # Les 12 derniers smiles
+    for i in range(-12, 0):
+        vol_d.append(vol_imp[i])
+        K_d.append(K[i])
+        
+        
+    plt.plot(K_d,vol_d,".")
+    plt.title("Quote Call 2D - 12 derniers")
+    plt.ylabel("Vol imp")
+    plt.xlabel("K")
+    plt.show()
+    
+    # Tous les smiles
+    plt.plot(K,vol_imp,".")
+    plt.title("Quote Call 2D - Tous")
+    plt.ylabel("Vol imp")
+    plt.xlabel("K")
+    plt.show()
+    
+    
+    # Plot en 3 dimensions
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.scatter(K, T, vol_imp, c='b', marker='o')
+
+    ax.set_title("Quote Call 3D")
+    ax.set_xlabel("K")
+    ax.set_ylabel("T")
+    ax.set_zlabel("Vol imp")
+
+    plt.show()
+
+def Quote_Put():
+    eps = 0.0001
+    t = 0
+    q = 0.0
+    S0 = 3932.69
+    
+    chemin = "/home/cytech/Desktop/Documents/ING3/Calibration/TP1/spx_quotedata.csv"
+    fichier = pd.read_csv(chemin,header=0,sep=',')
+    N = len(fichier)
+    
+    # Initialisation des données
+    S_0 = np.zeros(N)
+    vol_imp = np.zeros(N)
+    K = np.zeros(N)
+    r = np.zeros(N)
+    T = np.zeros(N)
+    Cb = np.zeros(N)
+    Ca = np.zeros(N)
+    Call = np.zeros(N)
+    Pb = np.zeros(N)
+    Pa = np.zeros(N)
+    Put = np.zeros(N)
+    format = '%d-%m-%y'
+    Maturite = []
+    
+    date_ref = datetime.strptime(fichier['Expiration Date'].iloc[0], format)
+    
+    for i in range(N):
+        # Chargement des données
+        date = fichier['Expiration Date'].iloc[i]
+        Maturite.append(datetime.strptime(date,format))
+        diff = (Maturite[i] - date_ref).days
+        T[i] = diff/365.25
+        
+        Cb[i] = fichier['Bid'].iloc[i]
+        Ca[i] = fichier['Ask'].iloc[i]
+        Pb[i] = fichier['Bid.1'].iloc[i]
+        Pa[i] = fichier['Ask.1'].iloc[i]
+        K[i] = fichier['Strike'].iloc[i]
+        r[i] = 0.0255
+        S_0[i] = S0
+        
+        # Calcul du cours
+        Put[i] = (Pb[i] + Pa[i])/2
+        
+        if verification2(Put[i],S_0[i],K[i],T[i], t, r[i]): 
+            #Initialisation du sigma
+            sigma = [np.sqrt(2 * abs((np.log(S_0[i] / K[i]) + r[i] * T[i]) / T[i]))]
+            # Algorithme de Newton
+            while abs(F_Put(S_0[i], K[i], r[i], sigma[-1], T[i], t, Put[i])) > eps:
+                sigma.append(sigma[-1] - F_Put(S_0[i], K[i], r[i], sigma[-1], T[i], t, Put[i]) / Vega(S_0[i], K[i], T[i], t, r[i], sigma[-1]))
+            vol_imp[i] = sigma[-1]
+        else:
+            vol_imp[i] = 0
+
+    # Suppression de tout les données ou la volatilité implicite est nullle                 
+    volat_nules=np.where(vol_imp==0)
+    K = np.delete(K,volat_nules)
+    vol_imp = np.delete(vol_imp,volat_nules)
+    T = np.delete(T,volat_nules)
+            
+    vol_p = []
+    K_p = []
+    vol_d = []
+    K_d = []
+    
+    for i in range(12):
+        vol_p.append(vol_imp[i])
+        K_p.append(K[i])
+        
+    plt.plot(K_p,vol_p,".")
+    plt.title("Quote Put 2D - 12 premiers")
+    plt.ylabel("Vol imp")
+    plt.xlabel("K")
+    plt.show()
+    
+    # Les 12 derniers smiles
+    for i in range(-12, 0):
+        vol_d.append(vol_imp[i])
+        K_d.append(K[i])
+        
+    plt.plot(K_d,vol_d,".")
+    plt.title("Quote Put 2D - 12 derniers")
+    plt.ylabel("Vol imp")
+    plt.xlabel("K")
+    plt.show()
+    
+    # Plot de tous les smiles
+    plt.plot(K,vol_imp,".")
+    plt.title("Quote Put 2D - Tous")
+    plt.ylabel("Vol imp")
+    plt.xlabel("K")
+    plt.show()    
+    
+    # Plot en 3 dimensions
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.scatter(K, T, vol_imp, c='b', marker='o')
+
+    ax.set_title("Quote Put 3D")
+    ax.set_xlabel("K")
+    ax.set_ylabel("T")
+    ax.set_zlabel("Vol imp")
+
+    plt.show()   
+
+def data_extract2():
+    eps = 0.0001
+    t = 0
+    q = 0.0
+    S0 = 3932.69
+    chemin = "/home/cytech/Desktop/Documents/ING3/Calibration/TP1/NEW_spx_quotedata.csv"
+    format = '%y-%m-%d'
+
+    # Lecture du fichier
+    fichier = pd.read_csv(chemin, header=0, sep=',')
+    N = len(fichier)
+
+    # Initialisation
+    S_0 = np.full(N, S0)
+    vol_imp = np.zeros(N)
+    K = fichier['Strike'].values
+    T = np.zeros(N)
+    r = np.full(N, 0.05)
+    Call = ((fichier['Bid'] + fichier['Ask']) / 2).values
+    Put = ((fichier['Bid.1'] + fichier['Ask.1']) / 2).values
+    Maturite = [datetime.strptime(d, format) for d in fichier['Expiration Date']]
+    date_ref = Maturite[0]
+
+    # Calcul des maturités et de la volatilité implicite
+    for i in range(N):
+        diff = (Maturite[i] - date_ref).days
+        T[i] = diff / 365.25
+        if T[i] <= 0:
+            vol_imp[i] = 0
+            continue
+        if verification(Call[i], S_0[i], K[i], T[i], t, r[i]):
+            try:
+                #Initialisation du sigma
+                sigma = [np.sqrt(2 * abs((np.log(S_0[i] / K[i]) + r[i] * T[i]) / T[i]))]
+                #Algorithme de Newton
+                for _ in range(50):  # J'ai instauré une limite de sécurité sur les itérations
+                    f_val = F(S_0[i], K[i], r[i], sigma[-1], T[i], t, Call[i])
+                    vega_val = Vega(S_0[i], K[i], T[i], t, r[i], sigma[-1])
+                    if vega_val == 0 or np.isnan(vega_val) or np.isinf(vega_val):
+                        break
+                    sigma_new = sigma[-1] - f_val / vega_val
+                    if np.isnan(sigma_new) or np.isinf(sigma_new):
+                        break
+                    sigma.append(sigma_new)
+                    if abs(f_val) < eps:
+                        break
+                vol_imp[i] = sigma[-1]
+            except Exception:
+                vol_imp[i] = 0
+        else:
+            vol_imp[i] = 0
+
+    # Suppression des lignes avec volatilité nulle
+    valid = (vol_imp > 0) & (~np.isnan(vol_imp)) & (~np.isinf(vol_imp))
+    K = K[valid]
+    T = T[valid]
+    vol_imp = vol_imp[valid]
+    Call = Call[valid]
+    Put = Put[valid]
+    r = r[valid]
+
+    # Plot smile 2D
+    plt.figure()
+    plt.plot(K, vol_imp, ".")
+    plt.title("Smile de volatilité implicite")
+    plt.xlabel("Strike (K)")
+    plt.ylabel("Volatilité implicite")
+    plt.grid(True)
+    plt.show()
+
+    # Découpage de sous ensemble dans une liste
+    T_unique = sorted(set(T))
+    S_hat = []
+
+    # Estimation de S par la parité Call - Put
+    for Tj in T_unique:
+        indices = np.where(T == Tj)[0]
+        if len(indices) > 0:
+            s_vals = Call[indices] - Put[indices] + np.exp(-r[indices] * T[indices]) * K[indices]
+            s_moy = np.mean(s_vals)
+            if s_moy > 0:
+                S_hat.append(s_moy)
+            else:
+                S_hat.append(np.nan)
+        else:
+            S_hat.append(np.nan)
+
+    S_hat = np.array(S_hat)
+    valid_ln = ~np.isnan(S_hat) & (S_hat > 0)
+    ln_S = np.log(S_hat[valid_ln])
+    T_arr = np.array(T_unique)[valid_ln].reshape(-1, 1)
+
+    # On fait une régression linéaire sur : ln(S) = β1*​T+ β2
+    # pour vérifier nos calculs et on plot le résultat
+    model = LinearRegression()
+    model.fit(T_arr, ln_S)
+
+    # β1 ​= −q
+    # β2​ = ln(S0​)
+    beta1 = model.coef_[0]
+    beta2 = model.intercept_
+    print(f"β1 = {beta1:.6f}, β2 = {beta2:.6f}")
+
+    # Plot regression linéaire
+    plt.figure()
+    plt.scatter(T_arr, ln_S, color='blue', label='Données observées')
+    plt.plot(T_arr, model.predict(T_arr), color='red', label='Régression linéaire')
+    plt.xlabel("Maturité T")
+    plt.ylabel("ln(S chapeau)")
+    plt.title("Régression linéaire de ln(S chapeau)")
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+    # Plot smile 3D
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.scatter(K, T, vol_imp, c='blue', marker='o')
+    ax.set_title("Smile 3D - Volatilité implicite")
+    ax.set_xlabel("Strike (K)")
+    ax.set_ylabel("Maturité (T)")
+    ax.set_zlabel("Vol. implicite")
+    plt.show()
+
+data_extract2()
