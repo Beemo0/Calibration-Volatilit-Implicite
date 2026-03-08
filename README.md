@@ -1,4 +1,4 @@
-# TP1 — Implied Volatility Calibration and Volatility Smile (Black-Scholes)
+# Implied Volatility Calibration and Volatility Smile (Black-Scholes)
 
 ## Overview
 
@@ -328,6 +328,3 @@ This repository contains the **code and methodology** used in an academic labora
 
 The original written report has been removed due to **academic and data usage restrictions**.
 
-```
-
----
