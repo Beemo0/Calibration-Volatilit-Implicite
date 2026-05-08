@@ -20,6 +20,7 @@ TP1/
 ├── sp-index.txt 
 ├── NEW_spx_quotedata.csv
 ├── spx_quotedata.csv
+├── GoogleOrig.xlsx
 └── README.md # Project documentation
 
 
