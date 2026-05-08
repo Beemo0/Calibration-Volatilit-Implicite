@@ -14,7 +14,7 @@ The implementation is written in **Python** and relies on numerical methods such
 
 ## Project Structure
 
-
+```
 TP1/
 ├── TP1.py # Python implementation of all computations
 ├── sp-index.txt 
@@ -22,7 +22,7 @@ TP1/
 ├── spx_quotedata.csv
 ├── GoogleOrig.xlsx
 └── README.md # Project documentation
-
+```
 
 ---
 
