@@ -34,30 +34,28 @@ The Black-Scholes model provides a theoretical price for European options.
 
 For a **Call option**, the price is given by:
 
-\[
-C = S_0 N(d_1) - K e^{-rT} N(d_2)
-\]
+$$\[C = S_0 N(d_1) - K e^{-rT} N(d_2)\]$$
 
 with
 
-\[
+$$\[
 d_1 = \frac{\ln(S_0/K) + (r + \sigma^2/2)T}{\sigma \sqrt{T}}
-\]
+\]$$
 
-\[
+$$\[
 d_2 = d_1 - \sigma \sqrt{T}
-\]
+\]$$
 
 where:
 
 | Variable | Meaning |
 |--------|--------|
-| \(S_0\) | underlying asset price |
-| \(K\) | strike price |
-| \(T\) | time to maturity |
-| \(r\) | risk-free interest rate |
-| \(σ\) | volatility |
-| \(N(x)\) | standard normal cumulative distribution |
+| $$\(S_0\)$$ | underlying asset price |
+| $$\(K\)$$ | strike price |
+| $$\(T\)$$ | time to maturity |
+| $$\(r\)$$ | risk-free interest rate |
+| $$\(σ\)$$ | volatility |
+| $$\(N(x)\)$$ | standard normal cumulative distribution |
 
 ---
 
@@ -65,23 +63,23 @@ where:
 
 The **implied volatility** is the value of \(σ\) such that the Black-Scholes price equals the market price:
 
-\[
+$$\[
 V_{BS}(σ) = V_{market}
-\]
+\]$$
 
 This leads to solving the nonlinear equation:
 
-\[
+$$\[
 F(σ) = V_{BS}(σ) - V_{market} = 0
-\]
+\]$$
 
 To compute the solution we apply the **Newton iterative algorithm**:
 
-\[
+$$\[
 σ_{n+1} = σ_n - \frac{F(σ_n)}{F'(σ_n)}
-\]
+\]$$
 
-The derivative \(F'(σ)\) corresponds to the **Vega** of the option.
+The derivative $$\(F'(σ)\)$$ corresponds to the **Vega** of the option.
 
 ---
 
@@ -133,11 +131,11 @@ The first part of the project calibrates implied volatility using option prices 
 
 Given parameters:
 
-- \(S_0 = 5430.3\)
-- \(r = 0.05\)
-- \(T = 4/12\)
+- $$\(S_0 = 5430.3\)$$
+- $$\(r = 0.05\)$$
+- $$\(T = 4/12\)$$
 
-For each strike \(K_i\), the algorithm computes the implied volatility \(σ_i\).
+For each strike \(K_i\), the algorithm computes the implied volatility $$\(σ_i\)$$.
 
 The resulting values are plotted as a function of the strike price.
 
@@ -149,22 +147,22 @@ This produces the **volatility smile**.
 
 When the underlying asset pays dividends, the Black-Scholes formula becomes:
 
-\[
+$$\[
 C = S_0 e^{-qT} N(d_1) - K e^{-rT} N(d_2)
-\]
+\]$$
 
 where \(q\) is the **continuous dividend rate**.
 
 The modified **Call-Put parity** becomes:
 
-\[
+$$\[
 C - P = S_0 e^{-qT} - K e^{-rT}
-\]
+\]$$
 
 This relation allows estimating:
 
-- the **initial asset price \(S_0\)**
-- the **dividend rate \(q\)**
+- the **initial asset price $$\(S_0\)$$**
+- the **dividend rate $$\(q\)$$**
 
 using market option prices.
 
@@ -172,31 +170,31 @@ using market option prices.
 
 ## Estimating Dividend Rate
 
-For each maturity \(T_j\), an estimate of the discounted underlying price is computed:
+For each maturity $$\(T_j\)$$, an estimate of the discounted underlying price is computed:
 
-\[
+$$\[
 \hat S_j =
 \frac{1}{N_j}
 \sum_i
 (Call - Put + K e^{-rT})
-\]
+\]$$
 
 Taking the logarithm:
 
-\[
+$$\[
 \ln(\hat S_j) = \ln(S_0) - qT_j
-\]
+\]$$
 
 A **linear regression** is performed:
 
-\[
+$$\[
 \ln(\hat S_j) = β_1 T_j + β_2
-\]
+\]$$
 
 with
 
-- \(q = -β_1\)
-- \(S_0 = e^{β_2}\)
+- $$\(q = -β_1\)$$
+- $$\(S_0 = e^{β_2}\)$$
 
 The code verifies the theoretical values:
 
@@ -265,7 +263,7 @@ From these data the script:
 
 Used to study the shape of volatility smiles under different dividend assumptions.
 
-The script allows adjusting the **dividend rate \(q\)** to obtain smoother volatility curves.
+The script allows adjusting the **dividend rate $$\(q\)$$** to obtain smoother volatility curves.
 
 ---
 
