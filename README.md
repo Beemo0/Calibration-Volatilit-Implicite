@@ -125,7 +125,7 @@ These ensure that the market option prices satisfy **no-arbitrage bounds** befor
 
 ---
 
-# Part I — LIFFE Options Dataset
+# Part I LIFFE Options Dataset
 
 The first part of the project calibrates implied volatility using option prices from the **London International Financial Futures and Options Exchange (LIFFE)**.
 
@@ -143,7 +143,7 @@ This produces the **volatility smile**.
 
 ---
 
-# Part II — Dividends and SP-INDEX Dataset
+# Part II Dividends and SP-INDEX Dataset
 
 When the underlying asset pays dividends, the Black-Scholes formula becomes:
 
